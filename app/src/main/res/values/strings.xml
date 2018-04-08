@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CapstoneProj</string>
+    <string name="Headlights">Headlights</string>
+    <string name="Other">Other...</string>
 </resources>
