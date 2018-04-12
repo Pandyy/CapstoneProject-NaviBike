@@ -4,16 +4,17 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -23,18 +24,31 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.tasks.Task;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapLoadedCallback{
         private final static int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
         private GoogleMap mMap;
         EditText ed1;
-        String destination;
         ToggleButton tb1;
         Button b1;
         Button b2;
@@ -51,8 +65,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         List<Address> addresses;
         List<Address> destinationAddresses;
         Address add;
+        Address dest;
         String address;
-
+        String destination;
+        String urlResponses;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -91,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     public void getDirections() {
+        mMap.clear();
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
@@ -98,15 +115,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
         } else {
             getCurrentLoc();
+            LatLng START1 = new LatLng(latBegin,longBegin);
+            mMap.addMarker(new MarkerOptions().position(START1).title(address));
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(START1,17));
         }
         if(ed1.getText().toString().isEmpty()){
             Toasty("Please Enter a Destination!!!");
         }
         else{
             origin = new LatLng(latBegin,longBegin);
-            //destinationF = new LatLng(latEnd,longEnd);
-            //NEED TO GEOCODE THE DESTINATION INTO LATLNG COORDINATES
-            getRequestURL(origin,destinationF);
+            destinationF = getDestinationCoordinates();
+            String getURL = getRequestURL(origin,destinationF);
+            reqDirectionsTask reqDirectionsTask = new reqDirectionsTask();
+            reqDirectionsTask.execute(getURL);
         }
     }
 
@@ -115,11 +136,107 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String destStr = "destination=" + destination.latitude + "," + destination.longitude;
         String sensor = "sensor=false";
         String mode = "mode=bicycling";
-        String param = oriStr + "&" + destStr + "&" + sensor + "&" + mode;
-        String url = "http://maps.googleapis.com/maps/apis/directions/" + "json?" + param;
+        String key = "key=AIzaSyCRLKfTgA_W6rOcJI9EjL1uTXNlIzL-GP0";
+        String param = oriStr + "&" + destStr + "&" + sensor + "&" + mode + "&" + key;
+        String url = "https://maps.googleapis.com/maps/api/directions/" + "json?" + param;
         return url;
     }
 
+    private String requestDirection(String requestURL) throws IOException {
+        String Response = "";
+        InputStream inputStream = null;
+        HttpURLConnection httpURLConnection = null;
+        try{
+            URL url = new URL(requestURL);
+            httpURLConnection = (HttpURLConnection) url.openConnection();
+            httpURLConnection.connect();
+            inputStream = httpURLConnection.getInputStream();
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+
+            StringBuffer stringBuffer = new StringBuffer();
+            String steps = "";
+            while((steps = bufferedReader.readLine()) != null){
+                stringBuffer.append(steps);
+            }
+
+            Response = stringBuffer.toString();
+            bufferedReader.close();
+            inputStreamReader.close();
+        } catch (Exception e){
+            e.printStackTrace();
+        } finally {
+            if (inputStream != null){
+                inputStream.close();
+            }
+            httpURLConnection.disconnect();
+        }
+        return Response;
+    }
+
+    public class reqDirectionsTask extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... strings) {
+            urlResponses = "";
+            try {
+                urlResponses = requestDirection(strings[0]);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return urlResponses;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            TaskParser taskParser = new TaskParser();
+            taskParser.execute(s);
+        }
+    }
+
+    public class TaskParser extends AsyncTask<String, Void, List<List<HashMap<String,String>>> >{
+
+        @Override
+        protected List<List<HashMap<String, String>>> doInBackground(String... strings) {
+            JSONObject jsonObject = null;
+            List<List<HashMap<String, String>>> routes = null;
+            try{
+                jsonObject = new JSONObject(strings[0]);
+                DirectionsJsonParser directionsParser = new DirectionsJsonParser();
+                routes = directionsParser.parse(jsonObject);
+            } catch(JSONException e){
+                e.printStackTrace();
+            }
+            return routes;
+        }
+
+        @Override
+        protected void onPostExecute(List<List<HashMap<String, String>>> lists) {
+            ArrayList points = null;
+            PolylineOptions polylineOptions = null;
+            for(List<HashMap<String, String>> path : lists ){
+                points = new ArrayList();
+                polylineOptions = new PolylineOptions();
+
+                for(HashMap<String, String> point : path){
+                    double lat = Double.parseDouble(point.get("lat"));
+                    double lng = Double.parseDouble(point.get("lng"));
+                    points.add(new LatLng(lat,lng));
+                }
+                polylineOptions.addAll(points);
+                polylineOptions.width(15);
+                polylineOptions.color(Color.RED);
+                polylineOptions.geodesic(true);
+            }
+
+            if(polylineOptions!=null){
+                mMap.addPolyline(polylineOptions);
+            }else{
+                Toasty("Sorry, directions not found!");
+            }
+        }
+    }
     public void getCurrentLoc(){
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
@@ -127,7 +244,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         location = LM.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
         latBegin = location.getLatitude();
         longBegin = location.getLongitude();
-        LatLng START1 = new LatLng(latBegin,longBegin);
         try {
             addresses = geocoder.getFromLocation(latBegin, longBegin, 1);
         } catch (IOException e) {
@@ -136,20 +252,27 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         add = addresses.get(0);
         address = add.getAddressLine(0);
-        mMap.addMarker(new MarkerOptions().position(START1).title(address));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(START1,17));
         return;
     }
-    public void getDestinationCoordinates(){
-        /*
+    public LatLng getDestinationCoordinates(){
         try {
-            addresses = geocoder.getFromLocation(latBegin, longBegin, 1);
+            destinationAddresses = geocoder.getFromLocationName(ed1.getText().toString(), 1);
+            if(destinationAddresses.size() == 0){
+                Toasty("Could not find coordinates of destination");
+            }
         } catch (IOException e) {
             e.printStackTrace();
             Toasty("Can not geocode");
         }
-         */
+        dest = destinationAddresses.get(0);
+        latEnd = dest.getLatitude();
+        longEnd = dest.getLongitude();
+        LatLng finaldest = new LatLng(latEnd, longEnd);
+        destination = dest.getAddressLine(0);
+        mMap.addMarker(new MarkerOptions().position(finaldest).title(destination));
+        return finaldest;
     }
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -170,6 +293,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     public void Toasty(String S){
-        Toast.makeText(this,S,Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,S,Toast.LENGTH_LONG).show();
     }
 }
