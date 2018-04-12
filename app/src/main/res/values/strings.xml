@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">CapstoneProj</string>
     <string name="Headlights">Headlights</string>
-    <string name="Other">Other...</string>
+    <string name="Other">Other</string>
+    <string name="normalView">Normal View</string>
+    <string name="googlemapsKey">AIzaSyCRLKfTgA_W6rOcJI9EjL1uTXNlIzL-GP0</string>
 </resources>

@@ -26,7 +26,7 @@
         android:id="@+id/destination"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Destination" />
+        android:hint="Please Enter your Destination: " />
 
     <Button
         android:id="@+id/getDirections"
@@ -52,6 +52,13 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/Headlights" />
+
+        <ToggleButton
+            android:id="@+id/SATV"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/normalView" />
     </LinearLayout>
 
 </LinearLayout>
