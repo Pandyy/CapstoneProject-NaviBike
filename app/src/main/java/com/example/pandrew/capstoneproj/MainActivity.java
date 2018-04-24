@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -19,6 +20,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
@@ -28,10 +30,8 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.Task;
-
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,14 +52,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         ToggleButton tb1;
         Button b1;
         Button b2;
-        Button b3;
         LatLng origin;
         LatLng destinationF;
         double latBegin;
         double longBegin;
         double latEnd;
         double longEnd;
+        double updateLat;
+        double updateLng;
         Location location;
+        Location UPDATES;
+        LatLng updates;
         LocationManager LM;
         Geocoder geocoder;
         List<Address> addresses;
@@ -76,8 +79,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         MapFragment mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         b1 = (Button) findViewById(R.id.getDirections);
-        b2 = (Button) findViewById(R.id.Other);
-        b3 = (Button) findViewById(R.id.headLight);
+        b2 = (Button) findViewById(R.id.headLight);
         tb1 = (ToggleButton) findViewById(R.id.SATV);
         ed1 = (EditText) findViewById(R.id.destination);
         geocoder = new Geocoder(this);
@@ -91,6 +93,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         b2.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                headlights();
             }
         });
         tb1.setOnClickListener(new View.OnClickListener() {
@@ -104,6 +107,39 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         });
+        LocationListener locationListener = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location location) {
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(getParent(),
+                            new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.INTERNET},
+                            PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
+                } else {
+                    UPDATES = LM.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
+                    updateLat = UPDATES.getLatitude();
+                    updateLng = UPDATES.getLongitude();
+                    updates = new LatLng(updateLat,updateLng);
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(updates,17));
+                }
+            }
+
+            @Override
+            public void onStatusChanged(String s, int i, Bundle bundle) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(String s) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(String s) {
+
+            }
+        };
+        LM.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 30, locationListener);
     }
 
     public void getDirections() {
@@ -142,6 +178,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         return url;
     }
 
+    public void headlights(){
+        Intent intent = new Intent(this, Headlights.class);
+        startActivity(intent);
+    }
     private String requestDirection(String requestURL) throws IOException {
         String Response = "";
         InputStream inputStream = null;
