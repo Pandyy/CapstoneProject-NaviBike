@@ -17,13 +17,16 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/googlemapsKey"/>
-        <activity android:name=".MainActivity">
+        <activity android:name=".startPage">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".MainActivity">
+        </activity>
+        <activity android:name=".Headlights"></activity>
     </application>
 
 </manifest>

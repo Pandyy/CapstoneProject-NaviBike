@@ -44,6 +44,7 @@ public class DirectionsJsonParser {
                             hm.put("lat", Double.toString(((LatLng)list.get(l)).latitude) );
                             hm.put("lng", Double.toString(((LatLng)list.get(l)).longitude) );
                             path.add(hm);
+
                         }
                     }
                     routes.add(path);
@@ -57,6 +58,7 @@ public class DirectionsJsonParser {
 
         return routes;
     }
+
 
     /**
      * Method to decode polyline points
